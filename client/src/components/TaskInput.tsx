@@ -11,6 +11,24 @@ interface TaskInputProps {
   onViewCompleted?: () => void;
 }
 
+function playDingSound() {
+  const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+  const oscillator = audioContext.createOscillator();
+  const gainNode = audioContext.createGain();
+  
+  oscillator.connect(gainNode);
+  gainNode.connect(audioContext.destination);
+  
+  oscillator.frequency.value = 880;
+  oscillator.type = 'sine';
+  
+  gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+  gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+  
+  oscillator.start(audioContext.currentTime);
+  oscillator.stop(audioContext.currentTime + 0.3);
+}
+
 export default function TaskInput({ onAddTask, taskCount = 0, onStartTasks, completedCount = 0, onViewCompleted }: TaskInputProps) {
   const [inputValue, setInputValue] = useState("");
   const [isRecording, setIsRecording] = useState(false);
@@ -30,6 +48,7 @@ export default function TaskInput({ onAddTask, taskCount = 0, onStartTasks, comp
         const transcript = event.results[0][0].transcript.trim();
         if (transcript) {
           onAddTask(transcript);
+          playDingSound();
         }
         setIsRecording(false);
       };
