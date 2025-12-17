@@ -37,14 +37,17 @@ export default function TaskDisplay({
   }, [task]);
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
+    <div className="flex flex-col min-h-screen bg-background" role="main" aria-label="Current task view">
       <header className="flex items-center justify-between p-4 md:p-6">
         <div className="text-sm text-muted-foreground" data-testid="text-position">
           {taskPosition} of {totalTasks}
         </div>
         <div 
-          className="text-xl md:text-2xl font-mono text-foreground"
+          className="text-xl md:text-2xl font-sans tabular-nums tracking-wide text-foreground"
           data-testid="text-timer"
+          role="timer"
+          aria-live="polite"
+          aria-label={`Time elapsed: ${Math.floor(elapsedSeconds / 60)} minutes and ${elapsedSeconds % 60} seconds`}
         >
           {formatTime(elapsedSeconds)}
         </div>
@@ -56,12 +59,14 @@ export default function TaskDisplay({
             <p 
               className="text-base md:text-lg text-muted-foreground uppercase tracking-widest"
               data-testid="text-do-this-now"
+              aria-hidden="true"
             >
               Do this now
             </p>
             <h1 
               className="text-3xl md:text-4xl font-normal text-foreground leading-snug break-words"
               data-testid="text-current-task"
+              aria-label={`Current task: ${task}`}
             >
               {task}
             </h1>

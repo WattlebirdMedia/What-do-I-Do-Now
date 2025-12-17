@@ -22,7 +22,7 @@ export default function TaskInput({ onAddTask, taskCount = 0, onStartTasks }: Ta
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-6 md:p-8 bg-background">
+    <div className="flex flex-col items-center justify-center min-h-screen p-6 md:p-8 bg-background" role="main" aria-label="Add tasks">
       <div className="w-full max-w-sm space-y-10">
         <div className="text-center space-y-3">
           <div className="flex items-center justify-center gap-2 mb-6">
@@ -51,6 +51,7 @@ export default function TaskInput({ onAddTask, taskCount = 0, onStartTasks }: Ta
             className="w-full text-base md:text-lg py-6 px-4 bg-card border-card-border"
             autoFocus
             data-testid="input-task"
+            aria-label="Enter a new task"
           />
           <Button
             type="submit"
