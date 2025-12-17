@@ -43,7 +43,7 @@ export default function TaskDisplay({
           {taskPosition} of {totalTasks}
         </div>
         <div 
-          className="text-sm font-mono text-muted-foreground"
+          className="text-xl md:text-2xl font-mono text-foreground"
           data-testid="text-timer"
         >
           {formatTime(elapsedSeconds)}
