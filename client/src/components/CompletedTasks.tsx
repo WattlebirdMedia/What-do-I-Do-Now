@@ -52,7 +52,7 @@ export default function CompletedTasks({ tasks, onBack, onClear }: CompletedTask
                   <Star className="w-8 h-8 text-foreground" />
                 </div>
                 <h2 className="text-2xl md:text-3xl font-normal text-foreground">
-                  Well done YOU!
+                  I did it
                 </h2>
                 <p className="text-muted-foreground text-lg">
                   You completed {tasks.length} {tasks.length === 1 ? 'task' : 'tasks'} today.
