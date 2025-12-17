@@ -23,16 +23,16 @@ export default function TaskInput({ onAddTask }: TaskInputProps) {
       <div className="w-full max-w-md space-y-8">
         <div className="text-center space-y-4">
           <h1 
-            className="text-2xl font-medium text-foreground leading-relaxed"
+            className="text-3xl font-medium text-foreground leading-relaxed"
             data-testid="text-app-title"
           >
-            What do you need to do?
+            What Do I Do Now?
           </h1>
           <p 
             className="text-muted-foreground text-lg"
             data-testid="text-app-subtitle"
           >
-            Add a task to get started
+            One task at a time. No overwhelm.
           </p>
         </div>
 
