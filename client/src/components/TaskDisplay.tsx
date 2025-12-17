@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Check, ArrowRight, Plus } from "lucide-react";
+import { Check, ArrowRight, Plus, Timer, TimerOff } from "lucide-react";
 
 interface TaskDisplayProps {
   task: string;
@@ -26,15 +26,25 @@ export default function TaskDisplay({
   onAddMore 
 }: TaskDisplayProps) {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [timerEnabled, setTimerEnabled] = useState(() => {
+    const saved = localStorage.getItem("timerEnabled");
+    return saved !== null ? JSON.parse(saved) : true;
+  });
 
   useEffect(() => {
+    localStorage.setItem("timerEnabled", JSON.stringify(timerEnabled));
+  }, [timerEnabled]);
+
+  useEffect(() => {
+    if (!timerEnabled) return;
+    
     setElapsedSeconds(0);
     const interval = setInterval(() => {
       setElapsedSeconds((prev) => prev + 1);
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [task]);
+  }, [task, timerEnabled]);
 
   return (
     <div className="flex flex-col min-h-screen bg-background" role="main" aria-label="Current task view">
@@ -42,14 +52,27 @@ export default function TaskDisplay({
         <div className="text-sm text-muted-foreground" data-testid="text-position">
           {taskPosition} of {totalTasks}
         </div>
-        <div 
-          className="text-xl md:text-2xl font-sans tabular-nums tracking-wide text-foreground"
-          data-testid="text-timer"
-          role="timer"
-          aria-live="polite"
-          aria-label={`Time elapsed: ${Math.floor(elapsedSeconds / 60)} minutes and ${elapsedSeconds % 60} seconds`}
-        >
-          {formatTime(elapsedSeconds)}
+        <div className="flex items-center gap-2">
+          {timerEnabled && (
+            <div 
+              className="text-xl md:text-2xl font-sans tabular-nums tracking-wide text-foreground"
+              data-testid="text-timer"
+              role="timer"
+              aria-live="polite"
+              aria-label={`Time elapsed: ${Math.floor(elapsedSeconds / 60)} minutes and ${elapsedSeconds % 60} seconds`}
+            >
+              {formatTime(elapsedSeconds)}
+            </div>
+          )}
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={() => setTimerEnabled(!timerEnabled)}
+            data-testid="button-toggle-timer"
+            aria-label={timerEnabled ? "Hide timer" : "Show timer"}
+          >
+            {timerEnabled ? <Timer className="w-5 h-5" /> : <TimerOff className="w-5 h-5" />}
+          </Button>
         </div>
       </header>
 
