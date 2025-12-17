@@ -1,30 +1,25 @@
-import { Switch, Route } from "wouter";
-import { queryClient } from "./lib/queryClient";
-import { QueryClientProvider } from "@tanstack/react-query";
-import { Toaster } from "@/components/ui/toaster";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import NotFound from "@/pages/not-found";
-
-function Router() {
-  return (
-    <Switch>
-      {/* Add pages below */}
-      {/* <Route path="/" component={Home}/> */}
-      {/* Fallback to 404 */}
-      <Route component={NotFound} />
-    </Switch>
-  );
-}
+import { useState } from "react";
+import TaskInput from "@/components/TaskInput";
+import TaskDisplay from "@/components/TaskDisplay";
 
 function App() {
-  return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Router />
-      </TooltipProvider>
-    </QueryClientProvider>
-  );
+  const [tasks, setTasks] = useState<string[]>([]);
+
+  const handleAddTask = (task: string) => {
+    setTasks((prev) => [...prev, task]);
+  };
+
+  const handleDone = () => {
+    setTasks((prev) => prev.slice(1));
+  };
+
+  const currentTask = tasks[0];
+
+  if (!currentTask) {
+    return <TaskInput onAddTask={handleAddTask} />;
+  }
+
+  return <TaskDisplay task={currentTask} onDone={handleDone} />;
 }
 
 export default App;
