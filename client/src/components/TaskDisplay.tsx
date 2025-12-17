@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 interface TaskDisplayProps {
   task: string;
   onDone: () => void;
+  onSkip: () => void;
 }
 
 function formatTime(seconds: number): string {
@@ -12,7 +13,7 @@ function formatTime(seconds: number): string {
   return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
 }
 
-export default function TaskDisplay({ task, onDone }: TaskDisplayProps) {
+export default function TaskDisplay({ task, onDone, onSkip }: TaskDisplayProps) {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   useEffect(() => {
@@ -48,14 +49,25 @@ export default function TaskDisplay({ task, onDone }: TaskDisplayProps) {
           </p>
         </div>
 
-        <Button
-          onClick={onDone}
-          size="lg"
-          className="w-full min-h-14 text-lg"
-          data-testid="button-done"
-        >
-          Done
-        </Button>
+        <div className="space-y-3">
+          <Button
+            onClick={onDone}
+            size="lg"
+            className="w-full min-h-14 text-lg"
+            data-testid="button-done"
+          >
+            Done
+          </Button>
+          <Button
+            onClick={onSkip}
+            variant="secondary"
+            size="lg"
+            className="w-full min-h-14 text-lg"
+            data-testid="button-skip"
+          >
+            Skip Task
+          </Button>
+        </div>
       </div>
     </div>
   );

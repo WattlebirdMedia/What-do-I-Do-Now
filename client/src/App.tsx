@@ -39,13 +39,21 @@ function App() {
     setTasks((prev) => prev.slice(1));
   };
 
+  const handleSkip = () => {
+    setTasks((prev) => {
+      if (prev.length <= 1) return prev;
+      const [first, ...rest] = prev;
+      return [...rest, first];
+    });
+  };
+
   const currentTask = tasks[0];
 
   if (!currentTask) {
     return <TaskInput onAddTask={handleAddTask} />;
   }
 
-  return <TaskDisplay task={currentTask} onDone={handleDone} />;
+  return <TaskDisplay task={currentTask} onDone={handleDone} onSkip={handleSkip} />;
 }
 
 export default App;
