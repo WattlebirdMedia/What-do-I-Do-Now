@@ -189,15 +189,15 @@ export default function TaskInput({ onAddTask, taskCount = 0, onStartTasks, comp
 
         <div className="pt-8 text-center">
           <a
-            href="#"
+            href="https://buymeacoffee.com/yourusername"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
             data-testid="link-support"
-            aria-label="Support this app"
+            aria-label="Buy me a coffee"
           >
             <Heart className="w-3.5 h-3.5" />
-            Support this app
+            Buy me a coffee
           </a>
         </div>
       </div>
