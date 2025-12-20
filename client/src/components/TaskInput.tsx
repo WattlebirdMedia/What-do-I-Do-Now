@@ -41,16 +41,22 @@ export default function TaskInput({ onAddTask, taskCount = 0, onStartTasks, comp
       setSpeechSupported(true);
       const recognition = new SpeechRecognitionAPI();
       recognition.continuous = false;
-      recognition.interimResults = false;
+      recognition.interimResults = true;
       recognition.lang = 'en-US';
       
       recognition.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript.trim();
-        if (transcript) {
+        const result = event.results[0];
+        const transcript = result[0].transcript.trim();
+        
+        // Show text in input field as user speaks
+        setInputValue(transcript);
+        
+        // When final result is ready, add the task
+        if (result.isFinal && transcript) {
           onAddTask(transcript);
           playDingSound();
+          setInputValue("");
         }
-        setIsRecording(false);
       };
       
       recognition.onerror = () => {
