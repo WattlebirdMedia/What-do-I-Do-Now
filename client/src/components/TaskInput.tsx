@@ -189,7 +189,7 @@ export default function TaskInput({ onAddTask, taskCount = 0, onStartTasks, comp
 
         <div className="pt-8 text-center">
           <a
-            href="https://buymeacoffee.com/yourusername"
+            href="https://buymeacoffee.com/wattlebirdmedia"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
