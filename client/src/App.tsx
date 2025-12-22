@@ -1,105 +1,91 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import TaskInput from "@/components/TaskInput";
 import TaskDisplay from "@/components/TaskDisplay";
 import CompletedTasks from "@/components/CompletedTasks";
+import type { Task } from "@shared/schema";
 
-const STORAGE_KEY = "whatdoidonow-tasks";
-const COMPLETED_KEY = "whatdoidonow-completed";
-
-function loadTasks(): string[] {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      return JSON.parse(stored);
-    }
-  } catch {
-    console.error("Failed to load tasks from storage");
-  }
-  return [];
-}
-
-function saveTasks(tasks: string[]) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
-  } catch {
-    console.error("Failed to save tasks to storage");
-  }
-}
-
-interface CompletedTask {
-  text: string;
-  completedAt: string;
-}
-
-function loadCompletedTasks(): CompletedTask[] {
-  try {
-    const stored = localStorage.getItem(COMPLETED_KEY);
-    if (stored) {
-      return JSON.parse(stored);
-    }
-  } catch {
-    console.error("Failed to load completed tasks from storage");
-  }
-  return [];
-}
-
-function saveCompletedTasks(tasks: CompletedTask[]) {
-  try {
-    localStorage.setItem(COMPLETED_KEY, JSON.stringify(tasks));
-  } catch {
-    console.error("Failed to save completed tasks to storage");
-  }
-}
+type View = "input" | "focus" | "completed";
 
 function getTodayDateString(): string {
   return new Date().toISOString().split('T')[0];
 }
 
-type View = "input" | "focus" | "completed";
-
 function App() {
-  const [tasks, setTasks] = useState<string[]>(loadTasks);
-  const [completedTasks, setCompletedTasks] = useState<CompletedTask[]>(loadCompletedTasks);
-  const [view, setView] = useState<View>(() => {
-    const loaded = loadTasks();
-    return loaded.length > 0 ? "focus" : "input";
+  const [view, setView] = useState<View>("input");
+
+  const { data: tasks = [], isLoading: tasksLoading } = useQuery<Task[]>({
+    queryKey: ['/api/tasks'],
   });
 
-  useEffect(() => {
-    saveTasks(tasks);
-  }, [tasks]);
+  const { data: completedTasks = [], isLoading: completedLoading } = useQuery<Task[]>({
+    queryKey: ['/api/tasks/completed'],
+  });
 
-  useEffect(() => {
-    saveCompletedTasks(completedTasks);
-  }, [completedTasks]);
+  const createTaskMutation = useMutation({
+    mutationFn: async (text: string) => {
+      const response = await apiRequest('POST', '/api/tasks', { text });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
+    }
+  });
+
+  const completeTaskMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiRequest('PATCH', `/api/tasks/${id}/complete`, {});
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/tasks/completed'] });
+    }
+  });
+
+  const reorderTasksMutation = useMutation({
+    mutationFn: async (taskIds: string[]) => {
+      const response = await apiRequest('POST', '/api/tasks/reorder', { taskIds });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/tasks'] });
+    }
+  });
+
+  const clearCompletedMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('DELETE', '/api/tasks/completed', {});
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/tasks/completed'] });
+    }
+  });
 
   const handleAddTask = (task: string) => {
-    setTasks((prev) => [...prev, task]);
+    createTaskMutation.mutate(task);
   };
 
   const handleDone = () => {
-    const completedTask = tasks[0];
-    if (completedTask) {
-      setCompletedTasks((prev) => [...prev, {
-        text: completedTask,
-        completedAt: new Date().toISOString()
-      }]);
+    const currentTask = tasks[0];
+    if (currentTask) {
+      completeTaskMutation.mutate(currentTask.id, {
+        onSuccess: () => {
+          if (tasks.length <= 1) {
+            setView("input");
+          }
+        }
+      });
     }
-    setTasks((prev) => {
-      const newTasks = prev.slice(1);
-      if (newTasks.length === 0) {
-        setView("input");
-      }
-      return newTasks;
-    });
   };
 
   const handleSkip = () => {
-    setTasks((prev) => {
-      if (prev.length <= 1) return prev;
-      const [first, ...rest] = prev;
-      return [...rest, first];
-    });
+    if (tasks.length <= 1) return;
+    const [first, ...rest] = tasks;
+    const newOrder = [...rest, first];
+    reorderTasksMutation.mutate(newOrder.map(t => t.id));
   };
 
   const handleStartTasks = () => {
@@ -121,19 +107,30 @@ function App() {
   };
 
   const handleClearCompleted = () => {
-    setCompletedTasks([]);
+    clearCompletedMutation.mutate();
   };
 
   const todayCompleted = completedTasks.filter(
-    (t) => t.completedAt.split('T')[0] === getTodayDateString()
+    (t) => t.completedAt && t.completedAt.toString().split('T')[0] === getTodayDateString()
   );
 
   const currentTask = tasks[0];
 
+  if (tasksLoading || completedLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
   if (view === "completed") {
     return (
       <CompletedTasks
-        tasks={todayCompleted}
+        tasks={todayCompleted.map(t => ({
+          text: t.text,
+          completedAt: t.completedAt?.toString() || new Date().toISOString()
+        }))}
         onBack={handleBackFromCompleted}
         onClear={handleClearCompleted}
       />
@@ -154,7 +151,7 @@ function App() {
 
   return (
     <TaskDisplay 
-      task={currentTask} 
+      task={currentTask.text} 
       onDone={handleDone} 
       onSkip={handleSkip}
       taskPosition={1}
