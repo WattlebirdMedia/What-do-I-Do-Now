@@ -77,7 +77,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async clearCompletedTasks(): Promise<void> {
-    await db.delete(tasks).where(eq(tasks.completed, true));
+    const result = await db.delete(tasks).where(eq(tasks.completed, true)).returning();
+    console.log('Cleared completed tasks:', result.length);
   }
 }
 
