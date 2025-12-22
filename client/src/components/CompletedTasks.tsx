@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Trash2, Star } from "lucide-react";
+import { ThemeToggle } from "./ThemeToggle";
 
 interface CompletedTask {
   text: string;
@@ -36,7 +37,7 @@ export default function CompletedTasks({ tasks, onBack, onClear, onLogout, userN
   
   return (
     <div className="flex flex-col min-h-screen bg-background" role="main" aria-label="Completed tasks">
-      <header className="flex items-center justify-between p-4 md:p-6 border-b border-border">
+      <header className="flex items-center justify-between gap-2 p-4 md:p-6 border-b border-border">
         <Button
           size="icon"
           variant="ghost"
@@ -47,7 +48,7 @@ export default function CompletedTasks({ tasks, onBack, onClear, onLogout, userN
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <h1 className="text-lg font-medium text-foreground">Today's Progress</h1>
-        <div className="w-9" />
+        <ThemeToggle />
       </header>
 
       <main className="flex-1 p-6 md:p-8">

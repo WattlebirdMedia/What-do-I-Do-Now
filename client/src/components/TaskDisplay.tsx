@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Check, ArrowRight, Plus, Pause, Play, CheckCircle } from "lucide-react";
+import { ThemeToggle } from "./ThemeToggle";
 
 interface TaskDisplayProps {
   task: string;
@@ -53,7 +54,7 @@ export default function TaskDisplay({
 
   return (
     <div className="flex flex-col min-h-screen bg-background" role="main" aria-label="Current task view">
-      <header className="flex items-center justify-between p-4 md:p-6">
+      <header className="flex items-center justify-between gap-2 p-4 md:p-6">
         <div className="text-sm text-muted-foreground" data-testid="text-position">
           {taskPosition} of {totalTasks}
         </div>
@@ -76,6 +77,7 @@ export default function TaskDisplay({
           >
             {timerPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
           </Button>
+          <ThemeToggle />
         </div>
       </header>
 

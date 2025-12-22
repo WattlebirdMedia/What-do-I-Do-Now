@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Circle, Mic, MicOff, CheckCircle, Heart } from "lucide-react";
+import { ThemeToggle } from "./ThemeToggle";
 
 interface TaskInputProps {
   onAddTask: (task: string) => void;
@@ -96,6 +97,9 @@ export default function TaskInput({ onAddTask, taskCount = 0, onStartTasks, comp
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-6 md:p-8 bg-background" role="main" aria-label="Add tasks">
+      <div className="absolute top-4 right-4">
+        <ThemeToggle />
+      </div>
       <div className="w-full max-w-sm space-y-10">
         <div className="text-center space-y-3">
           <div className="flex items-center justify-center gap-2 mb-6">
