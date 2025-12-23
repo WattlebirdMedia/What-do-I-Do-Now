@@ -73,6 +73,7 @@ export default function CompletedTasks({
   onEmptyBin 
 }: CompletedTasksProps) {
   const [activeTab, setActiveTab] = useState<TabType>("completed");
+  const [showAchievements, setShowAchievements] = useState(true);
   const phrase = getRandomPhrase();
   const achievements = getAchievements(tasks.length);
   const unlockedCount = achievements.filter(a => a.unlocked).length;
@@ -92,7 +93,19 @@ export default function CompletedTasks({
         <h1 className="text-lg font-medium text-foreground">
           {activeTab === "completed" ? "Today's Progress" : "Bin"}
         </h1>
-        <ThemeToggle />
+        <div className="flex items-center gap-1">
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={() => setShowAchievements(!showAchievements)}
+            data-testid="button-toggle-achievements"
+            aria-label={showAchievements ? "Hide achievements" : "Show achievements"}
+            className={`toggle-elevate ${showAchievements ? 'toggle-elevated' : ''}`}
+          >
+            <Trophy className="w-5 h-5" />
+          </Button>
+          <ThemeToggle />
+        </div>
       </header>
 
       <div className="flex border-b border-border">
@@ -147,28 +160,30 @@ export default function CompletedTasks({
                     </p>
                   </div>
 
-                  <div className="space-y-3">
-                    <h3 className="text-sm font-medium text-muted-foreground text-center">
-                      Achievements {unlockedCount > 0 && `(${unlockedCount}/${achievements.length})`}
-                    </h3>
-                    <div className="flex justify-center flex-wrap gap-2">
-                      {achievements.map((achievement) => {
-                        const Icon = achievement.icon;
-                        return (
-                          <Badge
-                            key={achievement.threshold}
-                            variant={achievement.unlocked ? "default" : "secondary"}
-                            className={`gap-1.5 px-3 py-1.5 ${!achievement.unlocked ? 'opacity-40' : ''}`}
-                            data-testid={`badge-achievement-${achievement.threshold}`}
-                          >
-                            <Icon className="w-3.5 h-3.5" />
-                            <span>{achievement.label}</span>
-                            <span className="text-xs opacity-70">({achievement.threshold})</span>
-                          </Badge>
-                        );
-                      })}
+                  {showAchievements && (
+                    <div className="space-y-3">
+                      <h3 className="text-sm font-medium text-muted-foreground text-center">
+                        Achievements {unlockedCount > 0 && `(${unlockedCount}/${achievements.length})`}
+                      </h3>
+                      <div className="flex justify-center flex-wrap gap-2">
+                        {achievements.map((achievement) => {
+                          const Icon = achievement.icon;
+                          return (
+                            <Badge
+                              key={achievement.threshold}
+                              variant={achievement.unlocked ? "default" : "secondary"}
+                              className={`gap-1.5 px-3 py-1.5 ${!achievement.unlocked ? 'opacity-40' : ''}`}
+                              data-testid={`badge-achievement-${achievement.threshold}`}
+                            >
+                              <Icon className="w-3.5 h-3.5" />
+                              <span>{achievement.label}</span>
+                              <span className="text-xs opacity-70">({achievement.threshold})</span>
+                            </Badge>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   <ul className="space-y-3" aria-label="List of completed tasks">
                     {tasks.map((task, index) => (
