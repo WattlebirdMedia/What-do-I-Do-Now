@@ -206,6 +206,12 @@ export default function TaskInput({ onAddTask, taskCount = 0, onStartTasks, comp
             Buy me a coffee
           </a>
         </div>
+
+        <div className="pt-4 text-center">
+          <p className="text-xs text-muted-foreground" data-testid="text-copyright">
+            © {new Date().getFullYear()} Made by Wattlebird Media
+          </p>
+        </div>
       </div>
     </div>
   );

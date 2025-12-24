@@ -292,6 +292,12 @@ export default function CompletedTasks({
           </div>
         </footer>
       )}
+
+      <div className="p-4 text-center">
+        <p className="text-xs text-muted-foreground" data-testid="text-copyright">
+          © {new Date().getFullYear()} Made by Wattlebird Media
+        </p>
+      </div>
     </div>
   );
 }

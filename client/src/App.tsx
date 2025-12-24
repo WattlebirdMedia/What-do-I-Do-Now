@@ -35,6 +35,11 @@ function LandingPage() {
         >
           Sign In to Get Started
         </Button>
+        <div className="pt-8">
+          <p className="text-xs text-muted-foreground" data-testid="text-copyright">
+            © {new Date().getFullYear()} Made by Wattlebird Media
+          </p>
+        </div>
       </div>
     </div>
   );

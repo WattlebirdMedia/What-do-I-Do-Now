@@ -149,6 +149,11 @@ export default function TaskDisplay({
               View {completedCount} completed today
             </Button>
           )}
+          <div className="pt-2 text-center">
+            <p className="text-xs text-muted-foreground" data-testid="text-copyright">
+              © {new Date().getFullYear()} Made by Wattlebird Media
+            </p>
+          </div>
         </div>
       </footer>
     </div>
