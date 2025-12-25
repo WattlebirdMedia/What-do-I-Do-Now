@@ -202,7 +202,7 @@ export default function TaskInput({ onAddTask, taskCount = 0, onStartTasks, comp
             data-testid="link-support"
             aria-label="Buy me a coffee"
           >
-            <Heart className="w-3.5 h-3.5" />
+            <Heart className="w-3.5 h-3.5 text-red-500 fill-red-500" />
             Buy me a coffee
           </a>
         </div>
