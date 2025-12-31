@@ -140,7 +140,7 @@ export async function registerRoutes(
           quantity: 1,
         }],
         mode: 'payment',
-        success_url: `${baseUrl}?payment=success`,
+        success_url: `${baseUrl}?payment=success&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${baseUrl}?payment=cancelled`,
         metadata: { userId: user.id },
       });
@@ -165,15 +165,11 @@ export async function registerRoutes(
           await storage.markUserAsPaid(userId);
           return res.json({ success: true, hasPaid: true });
         }
+        return res.json({ success: false, hasPaid: false, message: 'Payment not confirmed' });
       }
 
       const user = await storage.getUser(userId);
-      if (user?.hasPaid) {
-        return res.json({ success: true, hasPaid: true });
-      }
-
-      await storage.markUserAsPaid(userId);
-      res.json({ success: true, hasPaid: true });
+      res.json({ success: !!user?.hasPaid, hasPaid: !!user?.hasPaid });
     } catch (error: any) {
       console.error('Confirm payment error:', error);
       res.status(500).json({ error: 'Failed to confirm payment' });

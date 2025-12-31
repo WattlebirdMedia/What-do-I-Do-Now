@@ -287,8 +287,8 @@ function App() {
   });
 
   const confirmPaymentMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest('POST', '/api/billing/confirm', {});
+    mutationFn: async (sessionId: string) => {
+      const response = await apiRequest('POST', '/api/billing/confirm', { sessionId });
       return response.json();
     },
     onSuccess: () => {
@@ -298,8 +298,9 @@ function App() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('payment') === 'success' && isAuthenticated) {
-      confirmPaymentMutation.mutate();
+    const sessionId = params.get('session_id');
+    if (params.get('payment') === 'success' && sessionId && isAuthenticated) {
+      confirmPaymentMutation.mutate(sessionId);
       window.history.replaceState({}, '', window.location.pathname);
     }
   }, [isAuthenticated]);
