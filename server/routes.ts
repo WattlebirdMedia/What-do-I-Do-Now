@@ -5,7 +5,7 @@ import { insertTaskSchema } from "@shared/schema";
 import { ZodError } from "zod";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 
-const PAYID = "tzm067@mebank.com.au";
+const PAYID = "+61466816177";
 const MONTHLY_PRICE = "$9.99 AUD";
 const YEARLY_PRICE = "$79.99 AUD";
 const ADMIN_EMAIL = "wattlebirdmedia@gmail.com";
