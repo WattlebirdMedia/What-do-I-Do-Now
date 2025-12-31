@@ -312,7 +312,7 @@ function App() {
     return <LandingPage />;
   }
 
-  if (location === '/admin') {
+  if (location.startsWith('/admin')) {
     return <AdminPage />;
   }
 
