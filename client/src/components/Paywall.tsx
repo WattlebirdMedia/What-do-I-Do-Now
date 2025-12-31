@@ -39,7 +39,7 @@ export default function Paywall({ onCheckout, isLoading, userName }: PaywallProp
           <CardContent className="space-y-4">
             <div className="text-center">
               <span className="text-4xl font-bold text-foreground">$5</span>
-              <span className="text-muted-foreground ml-1">USD</span>
+              <span className="text-muted-foreground ml-1">AUD</span>
             </div>
             
             <ul className="space-y-2">

@@ -130,7 +130,7 @@ export async function registerRoutes(
         payment_method_types: ['card'],
         line_items: [{
           price_data: {
-            currency: 'usd',
+            currency: 'aud',
             product_data: {
               name: 'What Do I Do Now? - Lifetime Access',
               description: 'Unlock full access to the calm task manager app',
