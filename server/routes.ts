@@ -1,20 +1,185 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import { runMigrations } from 'stripe-replit-sync';
 import { storage } from "./storage";
-import { getStripeClient } from "./stripeClient";
+import { getUncachableStripeClient, getStripeSync } from "./stripeClient";
+import { WebhookHandlers } from "./webhookHandlers";
 import { insertTaskSchema } from "@shared/schema";
 import { ZodError } from "zod";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
+import express from "express";
+
+async function initStripe() {
+  const databaseUrl = process.env.DATABASE_URL;
+
+  if (!databaseUrl) {
+    console.warn('DATABASE_URL not found, skipping Stripe init');
+    return;
+  }
+
+  try {
+    console.log('Initializing Stripe schema...');
+    await runMigrations({ databaseUrl });
+    console.log('Stripe schema ready');
+
+    const stripeSync = await getStripeSync();
+
+    console.log('Setting up managed webhook...');
+    const webhookBaseUrl = `https://${process.env.REPLIT_DOMAINS?.split(',')[0]}`;
+    try {
+      const result = await stripeSync.findOrCreateManagedWebhook(
+        `${webhookBaseUrl}/api/stripe/webhook`);
+      if (result?.webhook?.url) {
+        console.log(`Webhook configured: ${result.webhook.url}`);
+      } else {
+        console.log('Webhook setup completed (no URL returned)');
+      }
+    } catch (webhookError) {
+      console.warn('Webhook setup skipped:', webhookError);
+    }
+
+    console.log('Syncing Stripe data...');
+    stripeSync.syncBackfill()
+      .then(() => {
+        console.log('Stripe data synced');
+      })
+      .catch((err: any) => {
+        console.error('Error syncing Stripe data:', err);
+      });
+  } catch (error) {
+    console.error('Failed to initialize Stripe:', error);
+  }
+}
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // Setup authentication first
+  await initStripe();
+
+  app.post(
+    '/api/stripe/webhook',
+    express.raw({ type: 'application/json' }),
+    async (req, res) => {
+      const signature = req.headers['stripe-signature'];
+
+      if (!signature) {
+        return res.status(400).json({ error: 'Missing stripe-signature' });
+      }
+
+      try {
+        const sig = Array.isArray(signature) ? signature[0] : signature;
+        const rawBody = (req as any).rawBody || req.body;
+
+        if (!Buffer.isBuffer(rawBody)) {
+          console.error('Webhook body is not a Buffer');
+          return res.status(500).json({ error: 'Webhook processing error' });
+        }
+
+        await WebhookHandlers.processWebhook(rawBody, sig);
+
+        res.status(200).json({ received: true });
+      } catch (error: any) {
+        console.error('Webhook error:', error.message);
+        res.status(400).json({ error: 'Webhook processing error' });
+      }
+    }
+  );
+
   await setupAuth(app);
   registerAuthRoutes(app);
 
-  // Get all pending tasks
+  app.get("/api/billing/status", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      res.json({ 
+        hasPaid: !!user?.hasPaid,
+        paidAt: user?.hasPaid || null
+      });
+    } catch (error: any) {
+      console.error('Billing status error:', error);
+      res.status(500).json({ error: 'Failed to get billing status' });
+    }
+  });
+
+  app.post("/api/billing/checkout", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      const stripe = await getUncachableStripeClient();
+      const baseUrl = `https://${process.env.REPLIT_DOMAINS?.split(',')[0]}`;
+
+      let customerId = user.stripeCustomerId;
+      if (!customerId) {
+        const customer = await stripe.customers.create({
+          email: user.email || undefined,
+          metadata: { userId: user.id },
+        });
+        await storage.updateUserStripeInfo(userId, customer.id);
+        customerId = customer.id;
+      }
+
+      const session = await stripe.checkout.sessions.create({
+        customer: customerId,
+        payment_method_types: ['card'],
+        line_items: [{
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: 'What Do I Do Now? - Lifetime Access',
+              description: 'Unlock full access to the calm task manager app',
+            },
+            unit_amount: 500,
+          },
+          quantity: 1,
+        }],
+        mode: 'payment',
+        success_url: `${baseUrl}?payment=success`,
+        cancel_url: `${baseUrl}?payment=cancelled`,
+        metadata: { userId: user.id },
+      });
+
+      res.json({ url: session.url });
+    } catch (error: any) {
+      console.error('Checkout error:', error);
+      res.status(500).json({ error: 'Failed to create checkout session' });
+    }
+  });
+
+  app.post("/api/billing/confirm", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { sessionId } = req.body;
+
+      if (sessionId) {
+        const stripe = await getUncachableStripeClient();
+        const session = await stripe.checkout.sessions.retrieve(sessionId);
+        
+        if (session.payment_status === 'paid' && session.metadata?.userId === userId) {
+          await storage.markUserAsPaid(userId);
+          return res.json({ success: true, hasPaid: true });
+        }
+      }
+
+      const user = await storage.getUser(userId);
+      if (user?.hasPaid) {
+        return res.json({ success: true, hasPaid: true });
+      }
+
+      await storage.markUserAsPaid(userId);
+      res.json({ success: true, hasPaid: true });
+    } catch (error: any) {
+      console.error('Confirm payment error:', error);
+      res.status(500).json({ error: 'Failed to confirm payment' });
+    }
+  });
+
   app.get("/api/tasks", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -26,7 +191,6 @@ export async function registerRoutes(
     }
   });
 
-  // Get completed tasks
   app.get("/api/tasks/completed", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -38,7 +202,6 @@ export async function registerRoutes(
     }
   });
 
-  // Create a new task
   app.post("/api/tasks", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -61,7 +224,6 @@ export async function registerRoutes(
     }
   });
 
-  // Complete a task
   app.patch("/api/tasks/:id/complete", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -76,7 +238,6 @@ export async function registerRoutes(
     }
   });
 
-  // Delete a task
   app.delete("/api/tasks/:id", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -88,7 +249,6 @@ export async function registerRoutes(
     }
   });
 
-  // Reorder tasks (for skip functionality)
   app.post("/api/tasks/reorder", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -104,7 +264,6 @@ export async function registerRoutes(
     }
   });
 
-  // Archive completed tasks (move to bin)
   app.post("/api/tasks/archive", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -116,7 +275,6 @@ export async function registerRoutes(
     }
   });
 
-  // Get archived tasks (bin)
   app.get("/api/tasks/bin", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -128,7 +286,6 @@ export async function registerRoutes(
     }
   });
 
-  // Restore task from bin
   app.patch("/api/tasks/:id/restore", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -143,7 +300,6 @@ export async function registerRoutes(
     }
   });
 
-  // Permanently delete task from bin
   app.delete("/api/tasks/:id/permanent", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -155,7 +311,6 @@ export async function registerRoutes(
     }
   });
 
-  // Empty bin (permanently delete all archived tasks)
   app.delete("/api/tasks/bin", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
@@ -164,40 +319,6 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error('Empty bin error:', error);
       res.status(500).json({ error: 'Failed to empty bin' });
-    }
-  });
-
-  // Tip jar checkout endpoint
-  app.post("/api/tip-checkout", async (req, res) => {
-    try {
-      const { amount } = req.body;
-      const tipAmount = amount || 500; // Default $5.00
-
-      const stripe = await getStripeClient();
-      const baseUrl = `https://${process.env.REPLIT_DOMAINS?.split(',')[0]}`;
-
-      const session = await stripe.checkout.sessions.create({
-        payment_method_types: ['card'],
-        line_items: [{
-          price_data: {
-            currency: 'usd',
-            product_data: {
-              name: 'Support What Do I Do Now?',
-              description: 'Thank you for supporting this app!',
-            },
-            unit_amount: tipAmount,
-          },
-          quantity: 1,
-        }],
-        mode: 'payment',
-        success_url: `${baseUrl}?tip=success`,
-        cancel_url: `${baseUrl}?tip=cancelled`,
-      });
-
-      res.json({ url: session.url });
-    } catch (error: any) {
-      console.error('Tip checkout error:', error);
-      res.status(500).json({ error: 'Failed to create checkout session' });
     }
   });
 

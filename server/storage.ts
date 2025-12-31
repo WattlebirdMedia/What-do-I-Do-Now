@@ -1,6 +1,6 @@
-import { tasks, type Task, type InsertTask } from "@shared/schema";
+import { tasks, users, type Task, type InsertTask, type User } from "@shared/schema";
 import { db, pool } from "./db";
-import { eq, asc, and } from "drizzle-orm";
+import { eq, asc, and, sql } from "drizzle-orm";
 
 export interface IStorage {
   getTasks(userId: string): Promise<Task[]>;
@@ -14,6 +14,13 @@ export interface IStorage {
   restoreTask(id: string, userId: string): Promise<Task | undefined>;
   permanentlyDeleteTask(id: string, userId: string): Promise<void>;
   emptyBin(userId: string): Promise<void>;
+  getUser(userId: string): Promise<User | undefined>;
+  updateUserStripeInfo(userId: string, stripeCustomerId: string): Promise<User | undefined>;
+  markUserAsPaid(userId: string): Promise<User | undefined>;
+  getProduct(productId: string): Promise<any>;
+  listProducts(active?: boolean): Promise<any[]>;
+  getPrice(priceId: string): Promise<any>;
+  listPrices(active?: boolean): Promise<any[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -84,6 +91,55 @@ export class DatabaseStorage implements IStorage {
 
   async emptyBin(userId: string): Promise<void> {
     await db.delete(tasks).where(and(eq(tasks.userId, userId), eq(tasks.archived, true)));
+  }
+
+  async getUser(userId: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, userId));
+    return user || undefined;
+  }
+
+  async updateUserStripeInfo(userId: string, stripeCustomerId: string): Promise<User | undefined> {
+    const [user] = await db.update(users)
+      .set({ stripeCustomerId, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+    return user || undefined;
+  }
+
+  async markUserAsPaid(userId: string): Promise<User | undefined> {
+    const [user] = await db.update(users)
+      .set({ hasPaid: new Date(), updatedAt: new Date() })
+      .where(eq(users.id, userId))
+      .returning();
+    return user || undefined;
+  }
+
+  async getProduct(productId: string): Promise<any> {
+    const result = await db.execute(
+      sql`SELECT * FROM stripe.products WHERE id = ${productId}`
+    );
+    return result.rows[0] || null;
+  }
+
+  async listProducts(active = true): Promise<any[]> {
+    const result = await db.execute(
+      sql`SELECT * FROM stripe.products WHERE active = ${active}`
+    );
+    return result.rows;
+  }
+
+  async getPrice(priceId: string): Promise<any> {
+    const result = await db.execute(
+      sql`SELECT * FROM stripe.prices WHERE id = ${priceId}`
+    );
+    return result.rows[0] || null;
+  }
+
+  async listPrices(active = true): Promise<any[]> {
+    const result = await db.execute(
+      sql`SELECT * FROM stripe.prices WHERE active = ${active}`
+    );
+    return result.rows;
   }
 }
 

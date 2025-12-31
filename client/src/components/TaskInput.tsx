@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Circle, Mic, MicOff, CheckCircle, Heart } from "lucide-react";
+import { Circle, Mic, MicOff, CheckCircle } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
 
 interface TaskInputProps {
@@ -194,20 +194,6 @@ export default function TaskInput({ onAddTask, taskCount = 0, onStartTasks, comp
         )}
 
         <div className="pt-8 text-center">
-          <a
-            href="https://buymeacoffee.com/wattlebirdmedia"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-            data-testid="link-support"
-            aria-label="Buy me a coffee"
-          >
-            <Heart className="w-3.5 h-3.5 text-red-500 fill-red-500" />
-            Buy me a coffee
-          </a>
-        </div>
-
-        <div className="pt-4 text-center">
           <p className="text-xs text-muted-foreground" data-testid="text-copyright">
             © {new Date().getFullYear()} Made by Wattlebird Media
           </p>

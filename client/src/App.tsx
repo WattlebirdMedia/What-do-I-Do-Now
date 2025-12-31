@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/use-auth";
 import TaskInput from "@/components/TaskInput";
 import TaskDisplay from "@/components/TaskDisplay";
 import CompletedTasks from "@/components/CompletedTasks";
+import Paywall from "@/components/Paywall";
 import { Button } from "@/components/ui/button";
 import type { Task } from "@shared/schema";
 
@@ -260,10 +261,50 @@ function TaskApp() {
   );
 }
 
+interface BillingStatus {
+  hasPaid: boolean;
+  paidAt: string | null;
+}
+
 function App() {
   const { user, isLoading, isAuthenticated } = useAuth();
+  
+  const { data: billingStatus, isLoading: billingLoading } = useQuery<BillingStatus>({
+    queryKey: ['/api/billing/status'],
+    enabled: isAuthenticated,
+  });
 
-  if (isLoading) {
+  const checkoutMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('POST', '/api/billing/checkout', {});
+      return response.json();
+    },
+    onSuccess: (data) => {
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    }
+  });
+
+  const confirmPaymentMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('POST', '/api/billing/confirm', {});
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/billing/status'] });
+    }
+  });
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('payment') === 'success' && isAuthenticated) {
+      confirmPaymentMutation.mutate();
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, [isAuthenticated]);
+
+  if (isLoading || (isAuthenticated && billingLoading)) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="text-muted-foreground">Loading...</div>
@@ -273,6 +314,16 @@ function App() {
 
   if (!isAuthenticated) {
     return <LandingPage />;
+  }
+
+  if (!billingStatus?.hasPaid) {
+    return (
+      <Paywall 
+        onCheckout={() => checkoutMutation.mutate()}
+        isLoading={checkoutMutation.isPending}
+        userName={user?.firstName || user?.email || undefined}
+      />
+    );
   }
 
   return <TaskApp />;
