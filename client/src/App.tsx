@@ -1,11 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
+import { Switch, Route, useLocation } from "wouter";
 import TaskInput from "@/components/TaskInput";
 import TaskDisplay from "@/components/TaskDisplay";
 import CompletedTasks from "@/components/CompletedTasks";
 import Paywall from "@/components/Paywall";
+import AdminPage from "@/pages/admin";
 import { Button } from "@/components/ui/button";
 import type { Task } from "@shared/schema";
 
@@ -263,47 +265,39 @@ function TaskApp() {
 
 interface BillingStatus {
   hasPaid: boolean;
+  paymentPending: boolean;
   paidAt: string | null;
+}
+
+interface PayIdInfo {
+  payId: string;
+  amount: string;
+  reference: string;
 }
 
 function App() {
   const { user, isLoading, isAuthenticated } = useAuth();
+  const [location] = useLocation();
   
   const { data: billingStatus, isLoading: billingLoading } = useQuery<BillingStatus>({
     queryKey: ['/api/billing/status'],
     enabled: isAuthenticated,
   });
 
-  const checkoutMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest('POST', '/api/billing/checkout', {});
-      return response.json();
-    },
-    onSuccess: (data) => {
-      if (data.url) {
-        window.location.href = data.url;
-      }
-    }
+  const { data: payIdInfo } = useQuery<PayIdInfo>({
+    queryKey: ['/api/billing/payid'],
+    enabled: isAuthenticated && !billingStatus?.hasPaid,
   });
 
-  const confirmPaymentMutation = useMutation({
-    mutationFn: async (sessionId: string) => {
-      const response = await apiRequest('POST', '/api/billing/confirm', { sessionId });
+  const markPaidMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('POST', '/api/billing/mark-paid', {});
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/billing/status'] });
     }
   });
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const sessionId = params.get('session_id');
-    if (params.get('payment') === 'success' && sessionId && isAuthenticated) {
-      confirmPaymentMutation.mutate(sessionId);
-      window.history.replaceState({}, '', window.location.pathname);
-    }
-  }, [isAuthenticated]);
 
   if (isLoading || (isAuthenticated && billingLoading)) {
     return (
@@ -317,11 +311,19 @@ function App() {
     return <LandingPage />;
   }
 
+  if (location === '/admin') {
+    return <AdminPage />;
+  }
+
   if (!billingStatus?.hasPaid) {
     return (
       <Paywall 
-        onCheckout={() => checkoutMutation.mutate()}
-        isLoading={checkoutMutation.isPending}
+        payId={payIdInfo?.payId || ''}
+        amount={payIdInfo?.amount || '$5 AUD'}
+        reference={payIdInfo?.reference || ''}
+        paymentPending={billingStatus?.paymentPending || false}
+        onMarkPaid={() => markPaidMutation.mutate()}
+        isLoading={markPaidMutation.isPending}
         userName={user?.firstName || user?.email || undefined}
       />
     );
