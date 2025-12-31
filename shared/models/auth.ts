@@ -24,6 +24,7 @@ export const users = pgTable("users", {
   stripeCustomerId: varchar("stripe_customer_id"),
   hasPaid: timestamp("has_paid"),
   paymentPending: timestamp("payment_pending"),
+  payIdReference: varchar("payid_reference"),
   isAdmin: varchar("is_admin"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

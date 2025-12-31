@@ -32,17 +32,35 @@ export async function registerRoutes(
   });
 
   app.get("/api/billing/payid", isAuthenticated, async (req: any, res) => {
-    res.json({ 
-      payId: PAYID,
-      amount: PAYMENT_AMOUNT,
-      reference: `WDID-${req.user.claims.sub.slice(-8)}`
-    });
+    try {
+      const userId = req.user.claims.sub;
+      const reference = await storage.getOrCreatePayIdReference(userId);
+      res.json({ 
+        payId: PAYID,
+        amount: PAYMENT_AMOUNT,
+        reference
+      });
+    } catch (error: any) {
+      console.error('Get PayID error:', error);
+      res.status(500).json({ error: 'Failed to get PayID details' });
+    }
   });
 
   app.post("/api/billing/mark-paid", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      await storage.markPaymentPending(userId);
+      const user = await storage.getUser(userId);
+      
+      if (user?.hasPaid) {
+        return res.json({ success: true, hasPaid: true, message: 'Already paid' });
+      }
+      
+      if (user?.paymentPending) {
+        return res.json({ success: true, paymentPending: true, message: 'Payment already pending verification' });
+      }
+      
+      const reference = await storage.getOrCreatePayIdReference(userId);
+      await storage.markPaymentPending(userId, reference);
       res.json({ success: true, paymentPending: true });
     } catch (error: any) {
       console.error('Mark paid error:', error);
@@ -66,7 +84,7 @@ export async function registerRoutes(
         firstName: u.firstName,
         lastName: u.lastName,
         paymentPending: u.paymentPending,
-        reference: `WDID-${u.id.slice(-8)}`
+        reference: u.payIdReference || `WDID-${u.id.slice(-8).toUpperCase()}`
       })));
     } catch (error: any) {
       console.error('Get pending payments error:', error);

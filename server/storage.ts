@@ -16,8 +16,9 @@ export interface IStorage {
   emptyBin(userId: string): Promise<void>;
   getUser(userId: string): Promise<User | undefined>;
   markUserAsPaid(userId: string): Promise<User | undefined>;
-  markPaymentPending(userId: string): Promise<User | undefined>;
+  markPaymentPending(userId: string, reference: string): Promise<User | undefined>;
   getPendingPayments(): Promise<User[]>;
+  getOrCreatePayIdReference(userId: string): Promise<string>;
   setUserAdmin(userId: string, isAdmin: boolean): Promise<User | undefined>;
 }
 
@@ -104,9 +105,9 @@ export class DatabaseStorage implements IStorage {
     return user || undefined;
   }
 
-  async markPaymentPending(userId: string): Promise<User | undefined> {
+  async markPaymentPending(userId: string, reference: string): Promise<User | undefined> {
     const [user] = await db.update(users)
-      .set({ paymentPending: new Date(), updatedAt: new Date() })
+      .set({ paymentPending: new Date(), payIdReference: reference, updatedAt: new Date() })
       .where(eq(users.id, userId))
       .returning();
     return user || undefined;
@@ -118,6 +119,18 @@ export class DatabaseStorage implements IStorage {
         sql`${users.paymentPending} IS NOT NULL`,
         sql`${users.hasPaid} IS NULL`
       ));
+  }
+
+  async getOrCreatePayIdReference(userId: string): Promise<string> {
+    const user = await this.getUser(userId);
+    if (user?.payIdReference) {
+      return user.payIdReference;
+    }
+    const reference = `WDID-${userId.slice(-8).toUpperCase()}`;
+    await db.update(users)
+      .set({ payIdReference: reference, updatedAt: new Date() })
+      .where(eq(users.id, userId));
+    return reference;
   }
 
   async setUserAdmin(userId: string, isAdmin: boolean): Promise<User | undefined> {
