@@ -6,7 +6,8 @@ import { ZodError } from "zod";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 
 const PAYID = "tzm067@mebank.com.au";
-const PAYMENT_AMOUNT = "$5 AUD";
+const MONTHLY_PRICE = "$9.99 AUD";
+const YEARLY_PRICE = "$79.99 AUD";
 const ADMIN_EMAIL = "wattlebirdmedia@gmail.com";
 
 export async function registerRoutes(
@@ -37,7 +38,8 @@ export async function registerRoutes(
       const reference = await storage.getOrCreatePayIdReference(userId);
       res.json({ 
         payId: PAYID,
-        amount: PAYMENT_AMOUNT,
+        monthlyPrice: MONTHLY_PRICE,
+        yearlyPrice: YEARLY_PRICE,
         reference
       });
     } catch (error: any) {
@@ -49,6 +51,7 @@ export async function registerRoutes(
   app.post("/api/billing/mark-paid", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
+      const { plan } = req.body;
       const user = await storage.getUser(userId);
       
       if (user?.hasPaid) {
@@ -60,7 +63,7 @@ export async function registerRoutes(
       }
       
       const reference = await storage.getOrCreatePayIdReference(userId);
-      await storage.markPaymentPending(userId, reference);
+      await storage.markPaymentPending(userId, reference, plan || 'monthly');
       res.json({ success: true, paymentPending: true });
     } catch (error: any) {
       console.error('Mark paid error:', error);
@@ -84,7 +87,9 @@ export async function registerRoutes(
         firstName: u.firstName,
         lastName: u.lastName,
         paymentPending: u.paymentPending,
-        reference: u.payIdReference || `WDID-${u.id.slice(-8).toUpperCase()}`
+        reference: u.payIdReference || `WDID-${u.id.slice(-8).toUpperCase()}`,
+        plan: u.subscriptionPlan || 'monthly',
+        amount: u.subscriptionPlan === 'yearly' ? YEARLY_PRICE : MONTHLY_PRICE
       })));
     } catch (error: any) {
       console.error('Get pending payments error:', error);

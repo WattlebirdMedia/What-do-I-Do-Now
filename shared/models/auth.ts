@@ -25,6 +25,7 @@ export const users = pgTable("users", {
   hasPaid: timestamp("has_paid"),
   paymentPending: timestamp("payment_pending"),
   payIdReference: varchar("payid_reference"),
+  subscriptionPlan: varchar("subscription_plan"),
   isAdmin: varchar("is_admin"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

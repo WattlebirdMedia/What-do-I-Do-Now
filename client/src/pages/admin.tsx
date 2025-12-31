@@ -13,6 +13,8 @@ interface PendingUser {
   lastName: string | null;
   paymentPending: string;
   reference: string;
+  plan: string;
+  amount: string;
 }
 
 export default function AdminPage() {
@@ -78,6 +80,10 @@ export default function AdminPage() {
                 </CardHeader>
                 <CardContent className="space-y-2">
                   <p className="text-sm text-muted-foreground">{user.email}</p>
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="font-medium">{user.amount}</span>
+                    <span className="text-muted-foreground">({user.plan})</span>
+                  </div>
                   <p className="text-sm">
                     Reference: <code className="bg-muted px-2 py-1 rounded">{user.reference}</code>
                   </p>

@@ -6,17 +6,19 @@ import { ThemeToggle } from "./ThemeToggle";
 
 interface PaywallProps {
   payId: string;
-  amount: string;
+  monthlyPrice: string;
+  yearlyPrice: string;
   reference: string;
   paymentPending: boolean;
-  onMarkPaid: () => void;
+  onMarkPaid: (plan: 'monthly' | 'yearly') => void;
   isLoading: boolean;
   userName?: string;
 }
 
 export default function Paywall({ 
   payId, 
-  amount, 
+  monthlyPrice,
+  yearlyPrice,
   reference, 
   paymentPending, 
   onMarkPaid, 
@@ -24,12 +26,15 @@ export default function Paywall({
   userName 
 }: PaywallProps) {
   const [copied, setCopied] = useState<'payid' | 'ref' | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('yearly');
 
   const copyToClipboard = async (text: string, type: 'payid' | 'ref') => {
     await navigator.clipboard.writeText(text);
     setCopied(type);
     setTimeout(() => setCopied(null), 2000);
   };
+
+  const currentPrice = selectedPlan === 'monthly' ? monthlyPrice : yearlyPrice;
 
   if (paymentPending) {
     return (
@@ -95,17 +100,43 @@ export default function Paywall({
           )}
         </div>
 
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            onClick={() => setSelectedPlan('monthly')}
+            className={`p-4 rounded-md border text-center transition-colors ${
+              selectedPlan === 'monthly' 
+                ? 'border-foreground bg-muted' 
+                : 'border-border hover-elevate'
+            }`}
+            data-testid="button-plan-monthly"
+          >
+            <div className="text-lg font-semibold">{monthlyPrice}</div>
+            <div className="text-sm text-muted-foreground">per month</div>
+          </button>
+          <button
+            onClick={() => setSelectedPlan('yearly')}
+            className={`p-4 rounded-md border text-center transition-colors relative ${
+              selectedPlan === 'yearly' 
+                ? 'border-foreground bg-muted' 
+                : 'border-border hover-elevate'
+            }`}
+            data-testid="button-plan-yearly"
+          >
+            <div className="text-lg font-semibold">{yearlyPrice}</div>
+            <div className="text-sm text-muted-foreground">per year</div>
+            <div className="absolute -top-2 right-2 text-xs bg-foreground text-background px-2 py-0.5 rounded">
+              Save 33%
+            </div>
+          </button>
+        </div>
+
         <Card>
-          <CardHeader className="text-center">
-            <CardTitle className="text-xl">Lifetime Access</CardTitle>
-            <CardDescription>One-time payment via PayID</CardDescription>
+          <CardHeader className="text-center pb-2">
+            <CardTitle className="text-lg">Pay via PayID</CardTitle>
+            <CardDescription>Australian bank transfer</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="text-center">
-              <span className="text-4xl font-bold text-foreground">{amount}</span>
-            </div>
-            
-            <div className="space-y-3 pt-2">
+            <div className="space-y-3">
               <div className="space-y-1">
                 <p className="text-sm text-muted-foreground">PayID:</p>
                 <div className="flex items-center gap-2">
@@ -120,6 +151,13 @@ export default function Paywall({
                   >
                     {copied === 'payid' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                   </Button>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Amount:</p>
+                <div className="bg-muted px-3 py-2 rounded-md text-sm font-semibold" data-testid="text-amount">
+                  {currentPrice}
                 </div>
               </div>
 
@@ -143,7 +181,7 @@ export default function Paywall({
 
             <div className="pt-2 space-y-2 text-sm text-muted-foreground">
               <p>1. Open your banking app</p>
-              <p>2. Send {amount} to the PayID above</p>
+              <p>2. Send {currentPrice} to the PayID above</p>
               <p>3. Use the reference code provided</p>
               <p>4. Click the button below once sent</p>
             </div>
@@ -151,7 +189,7 @@ export default function Paywall({
             <Button
               size="lg"
               className="w-full min-h-12 text-base"
-              onClick={onMarkPaid}
+              onClick={() => onMarkPaid(selectedPlan)}
               disabled={isLoading}
               data-testid="button-ive-paid"
             >

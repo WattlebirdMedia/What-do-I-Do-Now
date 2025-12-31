@@ -271,7 +271,8 @@ interface BillingStatus {
 
 interface PayIdInfo {
   payId: string;
-  amount: string;
+  monthlyPrice: string;
+  yearlyPrice: string;
   reference: string;
 }
 
@@ -290,8 +291,8 @@ function App() {
   });
 
   const markPaidMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest('POST', '/api/billing/mark-paid', {});
+    mutationFn: async (plan: 'monthly' | 'yearly') => {
+      const response = await apiRequest('POST', '/api/billing/mark-paid', { plan });
       return response.json();
     },
     onSuccess: () => {
@@ -319,10 +320,11 @@ function App() {
     return (
       <Paywall 
         payId={payIdInfo?.payId || ''}
-        amount={payIdInfo?.amount || '$5 AUD'}
+        monthlyPrice={payIdInfo?.monthlyPrice || '$9.99 AUD'}
+        yearlyPrice={payIdInfo?.yearlyPrice || '$79.99 AUD'}
         reference={payIdInfo?.reference || ''}
         paymentPending={billingStatus?.paymentPending || false}
-        onMarkPaid={() => markPaidMutation.mutate()}
+        onMarkPaid={(plan) => markPaidMutation.mutate(plan)}
         isLoading={markPaidMutation.isPending}
         userName={user?.firstName || user?.email || undefined}
       />

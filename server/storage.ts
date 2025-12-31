@@ -16,7 +16,7 @@ export interface IStorage {
   emptyBin(userId: string): Promise<void>;
   getUser(userId: string): Promise<User | undefined>;
   markUserAsPaid(userId: string): Promise<User | undefined>;
-  markPaymentPending(userId: string, reference: string): Promise<User | undefined>;
+  markPaymentPending(userId: string, reference: string, plan: string): Promise<User | undefined>;
   getPendingPayments(): Promise<User[]>;
   getOrCreatePayIdReference(userId: string): Promise<string>;
   setUserAdmin(userId: string, isAdmin: boolean): Promise<User | undefined>;
@@ -105,9 +105,9 @@ export class DatabaseStorage implements IStorage {
     return user || undefined;
   }
 
-  async markPaymentPending(userId: string, reference: string): Promise<User | undefined> {
+  async markPaymentPending(userId: string, reference: string, plan: string): Promise<User | undefined> {
     const [user] = await db.update(users)
-      .set({ paymentPending: new Date(), payIdReference: reference, updatedAt: new Date() })
+      .set({ paymentPending: new Date(), payIdReference: reference, subscriptionPlan: plan, updatedAt: new Date() })
       .where(eq(users.id, userId))
       .returning();
     return user || undefined;
