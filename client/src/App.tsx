@@ -320,8 +320,8 @@ function App() {
     return (
       <Paywall 
         payId={payIdInfo?.payId || ''}
-        monthlyPrice={payIdInfo?.monthlyPrice || '$9.99 AUD'}
-        yearlyPrice={payIdInfo?.yearlyPrice || '$79.99 AUD'}
+        monthlyPrice={payIdInfo?.monthlyPrice || '$6.69 USD'}
+        yearlyPrice={payIdInfo?.yearlyPrice || '$53.53 USD'}
         reference={payIdInfo?.reference || ''}
         paymentPending={billingStatus?.paymentPending || false}
         onMarkPaid={(plan) => markPaidMutation.mutate(plan)}
