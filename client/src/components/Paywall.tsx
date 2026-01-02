@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Check, Copy, Clock, Lock } from "lucide-react";
+import { Check, Copy, Clock, Lock, ArrowLeft } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
 
 interface PaywallProps {
@@ -13,6 +13,8 @@ interface PaywallProps {
   onMarkPaid: (plan: 'monthly' | 'yearly') => void;
   isLoading: boolean;
   userName?: string;
+  trialDaysRemaining?: number;
+  onBack?: () => void;
 }
 
 export default function Paywall({ 
@@ -23,7 +25,9 @@ export default function Paywall({
   paymentPending, 
   onMarkPaid, 
   isLoading, 
-  userName 
+  userName,
+  trialDaysRemaining,
+  onBack
 }: PaywallProps) {
   const [copied, setCopied] = useState<'payid' | 'ref' | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('yearly');
@@ -81,6 +85,18 @@ export default function Paywall({
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-6 bg-background" role="main" aria-label="Unlock access">
+      {onBack && (
+        <div className="absolute top-4 left-4">
+          <Button 
+            size="icon" 
+            variant="ghost" 
+            onClick={onBack}
+            data-testid="button-back"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </Button>
+        </div>
+      )}
       <div className="absolute top-4 right-4">
         <ThemeToggle />
       </div>
@@ -91,9 +107,16 @@ export default function Paywall({
             <Lock className="w-8 h-8 text-muted-foreground" />
           </div>
           <h1 className="text-2xl md:text-3xl font-normal text-foreground">
-            Unlock What Do I Do Now?
+            {trialDaysRemaining ? "Subscribe Now" : "Unlock What Do I Do Now?"}
           </h1>
-          {userName && (
+          {trialDaysRemaining && (
+            <p className="text-muted-foreground">
+              {trialDaysRemaining === 1 
+                ? "Your trial ends tomorrow" 
+                : `${trialDaysRemaining} days left in your free trial`}
+            </p>
+          )}
+          {userName && !trialDaysRemaining && (
             <p className="text-muted-foreground">
               Welcome, {userName}
             </p>

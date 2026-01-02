@@ -14,15 +14,19 @@ import type { Task } from "@shared/schema";
 
 type View = "input" | "focus" | "completed";
 
-function TrialBanner({ daysRemaining }: { daysRemaining: number }) {
+function TrialBanner({ daysRemaining, onClick }: { daysRemaining: number; onClick?: () => void }) {
   return (
-    <div className="fixed top-0 left-0 right-0 bg-primary text-primary-foreground py-2 px-4 text-center text-sm z-50" data-testid="banner-trial">
+    <div 
+      className="fixed top-0 left-0 right-0 bg-primary text-primary-foreground py-2 px-4 text-center text-sm z-50 cursor-pointer hover:bg-primary/90 transition-colors" 
+      data-testid="banner-trial"
+      onClick={onClick}
+    >
       <div className="flex items-center justify-center gap-2">
         <Clock className="w-4 h-4" />
         <span>
           {daysRemaining === 1 
-            ? "Trial ends tomorrow" 
-            : `${daysRemaining} days left in your free trial`}
+            ? "Trial ends tomorrow - Click to subscribe" 
+            : `${daysRemaining} days left in your free trial - Click to subscribe`}
         </span>
       </div>
     </div>
@@ -64,7 +68,7 @@ function LandingPage() {
   );
 }
 
-function TaskApp({ trialDaysRemaining }: { trialDaysRemaining?: number }) {
+function TaskApp({ trialDaysRemaining, onShowPayment }: { trialDaysRemaining?: number; onShowPayment?: () => void }) {
   const { user, logout } = useAuth();
   const [view, setView] = useState<View>("input");
 
@@ -230,7 +234,7 @@ function TaskApp({ trialDaysRemaining }: { trialDaysRemaining?: number }) {
   if (view === "completed") {
     return (
       <>
-        {showTrialBanner && <TrialBanner daysRemaining={trialDaysRemaining} />}
+        {showTrialBanner && <TrialBanner daysRemaining={trialDaysRemaining} onClick={onShowPayment} />}
         <div className={showTrialBanner ? "pt-10" : ""}>
           <CompletedTasks
             tasks={todayCompleted.map(t => ({
@@ -259,7 +263,7 @@ function TaskApp({ trialDaysRemaining }: { trialDaysRemaining?: number }) {
   if (view === "input" || !currentTask) {
     return (
       <>
-        {showTrialBanner && <TrialBanner daysRemaining={trialDaysRemaining} />}
+        {showTrialBanner && <TrialBanner daysRemaining={trialDaysRemaining} onClick={onShowPayment} />}
         <div className={showTrialBanner ? "pt-10" : ""}>
           <TaskInput 
             onAddTask={handleAddTask} 
@@ -277,7 +281,7 @@ function TaskApp({ trialDaysRemaining }: { trialDaysRemaining?: number }) {
 
   return (
     <>
-      {showTrialBanner && <TrialBanner daysRemaining={trialDaysRemaining} />}
+      {showTrialBanner && <TrialBanner daysRemaining={trialDaysRemaining} onClick={onShowPayment} />}
       <div className={showTrialBanner ? "pt-10" : ""}>
         <TaskDisplay 
           task={currentTask.text} 
@@ -315,6 +319,7 @@ interface PayIdInfo {
 function App() {
   const { user, isLoading, isAuthenticated } = useAuth();
   const [location] = useLocation();
+  const [showPaymentFromTrial, setShowPaymentFromTrial] = useState(false);
   
   const { data: billingStatus, isLoading: billingLoading } = useQuery<BillingStatus>({
     queryKey: ['/api/billing/status'],
@@ -323,7 +328,7 @@ function App() {
 
   const { data: payIdInfo } = useQuery<PayIdInfo>({
     queryKey: ['/api/billing/payid'],
-    enabled: isAuthenticated && !billingStatus?.hasPaid && (billingStatus?.trialExpired || billingStatus?.paymentPending),
+    enabled: isAuthenticated && (!billingStatus?.hasPaid || showPaymentFromTrial),
   });
 
   const markPaidMutation = useMutation({
@@ -333,6 +338,7 @@ function App() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/billing/status'] });
+      setShowPaymentFromTrial(false);
     }
   });
 
@@ -352,6 +358,23 @@ function App() {
     return <AdminPage />;
   }
 
+  if (showPaymentFromTrial && billingStatus?.inTrial) {
+    return (
+      <Paywall 
+        payId={payIdInfo?.payId || ''}
+        monthlyPrice={payIdInfo?.monthlyPrice || '$6.69 USD'}
+        yearlyPrice={payIdInfo?.yearlyPrice || '$53.53 USD'}
+        reference={payIdInfo?.reference || ''}
+        paymentPending={billingStatus?.paymentPending || false}
+        onMarkPaid={(plan) => markPaidMutation.mutate(plan)}
+        isLoading={markPaidMutation.isPending}
+        userName={user?.firstName || user?.email || undefined}
+        trialDaysRemaining={billingStatus.trialDaysRemaining}
+        onBack={() => setShowPaymentFromTrial(false)}
+      />
+    );
+  }
+
   if (!billingStatus?.hasPaid && !billingStatus?.inTrial) {
     return (
       <Paywall 
@@ -367,7 +390,12 @@ function App() {
     );
   }
 
-  return <TaskApp trialDaysRemaining={billingStatus?.inTrial ? billingStatus.trialDaysRemaining : undefined} />;
+  return (
+    <TaskApp 
+      trialDaysRemaining={billingStatus?.inTrial ? billingStatus.trialDaysRemaining : undefined} 
+      onShowPayment={() => setShowPaymentFromTrial(true)}
+    />
+  );
 }
 
 export default App;
