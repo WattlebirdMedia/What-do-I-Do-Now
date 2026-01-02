@@ -9,6 +9,22 @@ const PAYID = "+61466816177";
 const MONTHLY_PRICE = "$6.69 USD";
 const YEARLY_PRICE = "$53.53 USD";
 const ADMIN_EMAIL = "wattlebirdmedia@gmail.com";
+const TRIAL_DAYS = 7;
+
+const isInTrialPeriod = (createdAt: Date | null): boolean => {
+  if (!createdAt) return false;
+  const trialEndDate = new Date(createdAt);
+  trialEndDate.setDate(trialEndDate.getDate() + TRIAL_DAYS);
+  return new Date() < trialEndDate;
+};
+
+const getTrialDaysRemaining = (createdAt: Date | null): number => {
+  if (!createdAt) return 0;
+  const trialEndDate = new Date(createdAt);
+  trialEndDate.setDate(trialEndDate.getDate() + TRIAL_DAYS);
+  const remaining = Math.ceil((trialEndDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+  return Math.max(0, remaining);
+};
 
 const requirePaid = async (req: any, res: any, next: any) => {
   try {
@@ -17,10 +33,11 @@ const requirePaid = async (req: any, res: any, next: any) => {
       return res.status(401).json({ error: 'Unauthorized' });
     }
     const user = await storage.getUser(userId);
-    if (!user?.hasPaid) {
+    if (user?.hasPaid || isInTrialPeriod(user?.createdAt || null)) {
+      next();
+    } else {
       return res.status(403).json({ error: 'Payment required to access this feature' });
     }
-    next();
   } catch (error) {
     console.error('Payment check error:', error);
     res.status(500).json({ error: 'Failed to verify payment status' });
@@ -38,10 +55,15 @@ export async function registerRoutes(
     try {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
+      const inTrial = isInTrialPeriod(user?.createdAt || null);
+      const trialDaysRemaining = getTrialDaysRemaining(user?.createdAt || null);
       res.json({ 
         hasPaid: !!user?.hasPaid,
         paymentPending: !!user?.paymentPending,
-        paidAt: user?.hasPaid || null
+        paidAt: user?.hasPaid || null,
+        inTrial,
+        trialDaysRemaining,
+        trialExpired: !inTrial && !user?.hasPaid
       });
     } catch (error: any) {
       console.error('Billing status error:', error);

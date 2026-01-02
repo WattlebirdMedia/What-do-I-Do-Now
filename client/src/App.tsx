@@ -9,9 +9,25 @@ import CompletedTasks from "@/components/CompletedTasks";
 import Paywall from "@/components/Paywall";
 import AdminPage from "@/pages/admin";
 import { Button } from "@/components/ui/button";
+import { Clock } from "lucide-react";
 import type { Task } from "@shared/schema";
 
 type View = "input" | "focus" | "completed";
+
+function TrialBanner({ daysRemaining }: { daysRemaining: number }) {
+  return (
+    <div className="fixed top-0 left-0 right-0 bg-primary text-primary-foreground py-2 px-4 text-center text-sm z-50" data-testid="banner-trial">
+      <div className="flex items-center justify-center gap-2">
+        <Clock className="w-4 h-4" />
+        <span>
+          {daysRemaining === 1 
+            ? "Trial ends tomorrow" 
+            : `${daysRemaining} days left in your free trial`}
+        </span>
+      </div>
+    </div>
+  );
+}
 
 function getTodayDateString(): string {
   return new Date().toISOString().split('T')[0];
@@ -48,7 +64,7 @@ function LandingPage() {
   );
 }
 
-function TaskApp() {
+function TaskApp({ trialDaysRemaining }: { trialDaysRemaining?: number }) {
   const { user, logout } = useAuth();
   const [view, setView] = useState<View>("input");
 
@@ -209,57 +225,74 @@ function TaskApp() {
     );
   }
 
+  const showTrialBanner = trialDaysRemaining !== undefined && trialDaysRemaining > 0;
+
   if (view === "completed") {
     return (
-      <CompletedTasks
-        tasks={todayCompleted.map(t => ({
-          id: t.id,
-          text: t.text,
-          completedAt: t.completedAt?.toString() || new Date().toISOString()
-        }))}
-        binTasks={binTasks.map(t => ({
-          id: t.id,
-          text: t.text,
-          archivedAt: t.archivedAt?.toString() || new Date().toISOString()
-        }))}
-        onBack={handleBackFromCompleted}
-        onMoveToBin={handleMoveTobin}
-        onRestoreTask={handleRestoreTask}
-        onPermanentDelete={handlePermanentDelete}
-        onEmptyBin={handleEmptyBin}
-        onLogout={logout}
-        userName={user?.firstName || user?.email || undefined}
-      />
+      <>
+        {showTrialBanner && <TrialBanner daysRemaining={trialDaysRemaining} />}
+        <div className={showTrialBanner ? "pt-10" : ""}>
+          <CompletedTasks
+            tasks={todayCompleted.map(t => ({
+              id: t.id,
+              text: t.text,
+              completedAt: t.completedAt?.toString() || new Date().toISOString()
+            }))}
+            binTasks={binTasks.map(t => ({
+              id: t.id,
+              text: t.text,
+              archivedAt: t.archivedAt?.toString() || new Date().toISOString()
+            }))}
+            onBack={handleBackFromCompleted}
+            onMoveToBin={handleMoveTobin}
+            onRestoreTask={handleRestoreTask}
+            onPermanentDelete={handlePermanentDelete}
+            onEmptyBin={handleEmptyBin}
+            onLogout={logout}
+            userName={user?.firstName || user?.email || undefined}
+          />
+        </div>
+      </>
     );
   }
 
   if (view === "input" || !currentTask) {
     return (
-      <TaskInput 
-        onAddTask={handleAddTask} 
-        taskCount={tasks.length}
-        onStartTasks={handleStartTasks}
-        completedCount={todayCompleted.length}
-        onViewCompleted={handleViewCompleted}
-        onLogout={logout}
-        userName={user?.firstName || user?.email || undefined}
-      />
+      <>
+        {showTrialBanner && <TrialBanner daysRemaining={trialDaysRemaining} />}
+        <div className={showTrialBanner ? "pt-10" : ""}>
+          <TaskInput 
+            onAddTask={handleAddTask} 
+            taskCount={tasks.length}
+            onStartTasks={handleStartTasks}
+            completedCount={todayCompleted.length}
+            onViewCompleted={handleViewCompleted}
+            onLogout={logout}
+            userName={user?.firstName || user?.email || undefined}
+          />
+        </div>
+      </>
     );
   }
 
   return (
-    <TaskDisplay 
-      task={currentTask.text} 
-      onDone={handleDone} 
-      onSkip={handleSkip}
-      taskPosition={1}
-      totalTasks={tasks.length}
-      onAddMore={handleAddMore}
-      completedCount={todayCompleted.length}
-      onViewCompleted={handleViewCompleted}
-      onLogout={logout}
-      userName={user?.firstName || user?.email || undefined}
-    />
+    <>
+      {showTrialBanner && <TrialBanner daysRemaining={trialDaysRemaining} />}
+      <div className={showTrialBanner ? "pt-10" : ""}>
+        <TaskDisplay 
+          task={currentTask.text} 
+          onDone={handleDone} 
+          onSkip={handleSkip}
+          taskPosition={1}
+          totalTasks={tasks.length}
+          onAddMore={handleAddMore}
+          completedCount={todayCompleted.length}
+          onViewCompleted={handleViewCompleted}
+          onLogout={logout}
+          userName={user?.firstName || user?.email || undefined}
+        />
+      </div>
+    </>
   );
 }
 
@@ -267,6 +300,9 @@ interface BillingStatus {
   hasPaid: boolean;
   paymentPending: boolean;
   paidAt: string | null;
+  inTrial: boolean;
+  trialDaysRemaining: number;
+  trialExpired: boolean;
 }
 
 interface PayIdInfo {
@@ -287,7 +323,7 @@ function App() {
 
   const { data: payIdInfo } = useQuery<PayIdInfo>({
     queryKey: ['/api/billing/payid'],
-    enabled: isAuthenticated && !billingStatus?.hasPaid,
+    enabled: isAuthenticated && !billingStatus?.hasPaid && (billingStatus?.trialExpired || billingStatus?.paymentPending),
   });
 
   const markPaidMutation = useMutation({
@@ -316,7 +352,7 @@ function App() {
     return <AdminPage />;
   }
 
-  if (!billingStatus?.hasPaid) {
+  if (!billingStatus?.hasPaid && !billingStatus?.inTrial) {
     return (
       <Paywall 
         payId={payIdInfo?.payId || ''}
@@ -331,7 +367,7 @@ function App() {
     );
   }
 
-  return <TaskApp />;
+  return <TaskApp trialDaysRemaining={billingStatus?.inTrial ? billingStatus.trialDaysRemaining : undefined} />;
 }
 
 export default App;
