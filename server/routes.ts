@@ -4,12 +4,41 @@ import { storage } from "./storage";
 import { insertTaskSchema } from "@shared/schema";
 import { ZodError } from "zod";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
+import { Resend } from "resend";
 
 const PAYID = "+61466816177";
 const MONTHLY_PRICE = "$6.69 USD";
 const YEARLY_PRICE = "$53.53 USD";
 const ADMIN_EMAIL = "wattlebirdmedia@gmail.com";
 const TRIAL_DAYS = 7;
+
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+async function sendPaymentNotification(userEmail: string, userName: string, plan: string, reference: string, amount: string) {
+  try {
+    await resend.emails.send({
+      from: "What Do I Do Now? <onboarding@resend.dev>",
+      to: ADMIN_EMAIL,
+      subject: `New Payment Pending Approval - ${reference}`,
+      html: `
+        <h2>New Payment Submitted</h2>
+        <p>A user has marked their payment as complete and is waiting for approval.</p>
+        <table style="border-collapse: collapse; margin: 20px 0;">
+          <tr><td style="padding: 8px; font-weight: bold;">User:</td><td style="padding: 8px;">${userName}</td></tr>
+          <tr><td style="padding: 8px; font-weight: bold;">Email:</td><td style="padding: 8px;">${userEmail}</td></tr>
+          <tr><td style="padding: 8px; font-weight: bold;">Plan:</td><td style="padding: 8px;">${plan}</td></tr>
+          <tr><td style="padding: 8px; font-weight: bold;">Amount:</td><td style="padding: 8px;">${amount}</td></tr>
+          <tr><td style="padding: 8px; font-weight: bold;">Reference:</td><td style="padding: 8px;">${reference}</td></tr>
+        </table>
+        <p>Please verify the payment in your bank account and approve access at:</p>
+        <p><a href="https://what-do-i-do-now.replit.app/admin">Admin Panel</a></p>
+      `
+    });
+    console.log(`Payment notification email sent for ${reference}`);
+  } catch (error) {
+    console.error('Failed to send payment notification email:', error);
+  }
+}
 
 const isInTrialPeriod = (createdAt: Date | null): boolean => {
   if (!createdAt) return false;
@@ -102,7 +131,20 @@ export async function registerRoutes(
       }
       
       const reference = await storage.getOrCreatePayIdReference(userId);
-      await storage.markPaymentPending(userId, reference, plan || 'monthly');
+      const selectedPlan = plan || 'monthly';
+      const amount = selectedPlan === 'yearly' ? YEARLY_PRICE : MONTHLY_PRICE;
+      await storage.markPaymentPending(userId, reference, selectedPlan);
+      
+      // Send email notification to admin
+      const userName = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Unknown';
+      await sendPaymentNotification(
+        user?.email || 'No email provided',
+        userName,
+        selectedPlan,
+        reference,
+        amount
+      );
+      
       res.json({ success: true, paymentPending: true });
     } catch (error: any) {
       console.error('Mark paid error:', error);
