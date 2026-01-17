@@ -1,26 +1,41 @@
-import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, boolean, timestamp } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
-import { z } from "zod";
+import { pgTable, serial, text, varchar, boolean, timestamp } from "drizzle-orm/pg-core";
+import { InferModel } from "drizzle-orm";
 
-export * from "./models/auth";
+export const users = pgTable("users", {
+  id: varchar("id", { length: 21 }).primaryKey(),
+  email: text("email").notNull(),
+  passwordHash: text("password_hash").notNull(),
+  firstName: text("first_name"),
+  lastName: text("last_name"),
+  isAdmin: boolean("is_admin").default(false),
+  hasPaid: boolean("has_paid").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
 
 export const tasks = pgTable("tasks", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").notNull(),
+  id: varchar("id", { length: 21 }).primaryKey(),
+  userId: varchar("user_id", { length: 21 }).notNull(),
   text: text("text").notNull(),
-  position: integer("position").notNull(),
-  completed: boolean("completed").notNull().default(false),
+  position: serial("position"),
   completedAt: timestamp("completed_at"),
-  archived: boolean("archived").notNull().default(false),
   archivedAt: timestamp("archived_at"),
-  createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
-export const insertTaskSchema = createInsertSchema(tasks).pick({
-  text: true,
-  position: true,
+export const payments = pgTable("payments", {
+  userId: varchar("user_id", { length: 21 }).primaryKey(),
+  payIdReference: varchar("payid_reference", { length: 20 }),
+  paymentPending: boolean("payment_pending").default(false),
+  subscriptionPlan: varchar("subscription_plan", { length: 20 }),
 });
 
-export type InsertTask = z.infer<typeof insertTaskSchema>;
-export type Task = typeof tasks.$inferSelect;
+// Users
+export type User = InferModel<typeof users>;
+export type NewUser = InferModel<typeof users, "insert">;
+
+// Tasks
+export type Task = InferModel<typeof tasks>;
+export type NewTask = InferModel<typeof tasks, "insert">;
+
+// Payments
+export type Payment = InferModel<typeof payments>;
+export type NewPayment = InferModel<typeof payments, "insert">;

@@ -1,0 +1,19 @@
+# Core dependencies
+express
+drizzle-orm
+bcryptjs
+jsonwebtoken
+nanoid
+dotenv
+axios
+tsx
+
+# Dev dependencies
+typescript
+ts-node
+@types/express
+@types/node
+@types/jsonwebtoken
+@types/bcryptjs
+@types/axios
+cross-env
