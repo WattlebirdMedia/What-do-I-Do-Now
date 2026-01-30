@@ -61,58 +61,176 @@ export const storage = {
   },
 
   // ==========================
-  // PAYMENTS
-  // ==========================
+  // // PAYMENTS SERVICE
+// ==========================
+
+import { nanoid } from "nanoid";
+import nodemailer from "nodemailer";
+import { eq } from "drizzle-orm";
+import { db } from "@/db";
+import { users, payments } from "@/db/schema";
+
+// ==========================
+// EMAIL CONFIG
+// ==========================
+
+const transporter = nodemailer.createTransport({
+  host: "smtp.gmail.com",
+  port: 587,
+  secure: false,
+  auth: {
+    user: process.env.EMAIL_USER, // sender gmail
+    pass: process.env.EMAIL_PASS, // gmail app password
+  },
+});
+
+async function sendPayIdNotificationEmail(params: {
+  reference: string;
+  userEmail: string;
+  subscriptionPlan: "monthly" | "yearly";
+}) {
+  const { reference, userEmail, subscriptionPlan } = params;
+
+  await transporter.sendMail({
+    from: `"Wattlebird App" <${process.env.EMAIL_USER}>`,
+    to: "wattlebirdmedia@gmail.com",
+    subject: "New PayID Payment – Verification Required",
+    html: `
+      <h2>PayID Payment Submitted</h2>
+      <p><strong>User Email:</strong> ${userEmail}</p>
+      <p><strong>Reference:</strong> ${reference}</p>
+      <p><strong>Plan:</strong> ${subscriptionPlan}</p>
+      <p>Please verify this payment to unlock access.</p>
+    `,
+  });
+}
+
+// ==========================
+// PAYMENT LOGIC
+// ==========================
+
+export const paymentService = {
+  // ----------------------------------
+  // Get or create PayID reference
+  // ----------------------------------
   async getOrCreatePayIdReference(userId: string) {
     const existing = await db
       .select()
       .from(payments)
       .where(eq(payments.userId, userId))
+      .limit(1)
       .execute();
 
-    if (existing[0]?.payIdReference) return existing[0].payIdReference;
+    if (existing[0]?.payIdReference) {
+      return existing[0].payIdReference;
+    }
 
     const reference = `WDID-${nanoid(8).toUpperCase()}`;
+
     await db.insert(payments).values({
-    userId,                 // <-- property name from schema
-    payIdReference: reference,
-    paymentPending: false,
-    subscriptionPlan: "monthly",
+      userId,
+      payIdReference: reference,
+      paymentPending: false,
+      paymentConfirmed: false,
+      subscriptionPlan: "monthly",
     }).execute();
 
     return reference;
   },
 
-  async markPaymentPending(userId: string, reference: string, subscriptionPlan: "monthly" | "yearly") {
-    await db.update(payments)
-        .set({
-        paymentPending: true,
-        payIdReference: reference,
-        subscriptionPlan,
-        })
-        .where(eq(payments.userId, userId))
-        .execute();
-    },
-
-  async getPendingPayments() {
-    const rows = await db
+  // ----------------------------------
+  // Mark payment as pending + email admin
+  // ----------------------------------
+  async markPaymentPending(
+    userId: string,
+    subscriptionPlan: "monthly" | "yearly"
+  ) {
+    const user = await db
       .select({
-        id: users.id,
+        email: users.email,
+      })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1)
+      .execute();
+
+    if (!user[0]) {
+      throw new Error("User not found");
+    }
+
+    const reference = await this.getOrCreatePayIdReference(userId);
+
+    await db
+      .update(payments)
+      .set({
+        paymentPending: true,
+        paymentConfirmed: false,
+        subscriptionPlan,
+      })
+      .where(eq(payments.userId, userId))
+      .execute();
+
+    await sendPayIdNotificationEmail({
+      reference,
+      userEmail: user[0].email,
+      subscriptionPlan,
+    });
+
+    return reference;
+  },
+
+  // ----------------------------------
+  // Admin confirms payment (UNLOCK ACCESS)
+  // ----------------------------------
+  async confirmPayment(userId: string) {
+    await db.transaction(async (tx) => {
+      await tx
+        .update(payments)
+        .set({
+          paymentPending: false,
+          paymentConfirmed: true,
+        })
+        .where(eq(payments.userId, userId));
+
+      await tx
+        .update(users)
+        .set({
+          hasPaid: true,
+        })
+        .where(eq(users.id, userId));
+    });
+  },
+
+  // ----------------------------------
+  // Get all pending payments (admin view)
+  // ----------------------------------
+  async getPendingPayments() {
+    return await db
+      .select({
+        userId: users.id,
         email: users.email,
         firstName: users.firstName,
         lastName: users.lastName,
         hasPaid: users.hasPaid,
         payIdReference: payments.payIdReference,
-        paymentPending: payments.paymentPending,
         subscriptionPlan: payments.subscriptionPlan,
+        paymentPending: payments.paymentPending,
       })
-      .from(users)
-      .leftJoin(payments, eq(users.id, payments.userId))
+      .from(payments)
+      .innerJoin(users, eq(users.id, payments.userId))
       .where(eq(payments.paymentPending, true))
       .execute();
-
-    return rows;
   },
+
+  // ----------------------------------
+  // Access guard helper
+  // ----------------------------------
+  requirePaidAccess(user: { hasPaid: boolean }) {
+    if (!user.hasPaid) {
+      throw new Error("Payment required to access this feature");
+    }
+  },
+};
 
   // ==========================
   // TASKS

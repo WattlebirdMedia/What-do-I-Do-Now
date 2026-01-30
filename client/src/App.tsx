@@ -63,7 +63,7 @@ function LandingPage() {
         <div className="w-full max-w-lg space-y-12">
           <div className="text-center space-y-4">
             <h1 className="text-3xl md:text-4xl font-medium text-foreground" data-testid="text-title">
-              What Do I Do Now?
+              Grounded
             </h1>
             <p className="text-xl text-muted-foreground" data-testid="text-tagline">
               The task manager that actually helps you focus.
